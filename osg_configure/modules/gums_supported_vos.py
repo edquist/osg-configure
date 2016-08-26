@@ -37,10 +37,9 @@ def certurlopen(url, certpath, keypath):
     opener  = urllib2.build_opener(handler)
     return opener.open(url)
 
-def get_json_map(gumshost, targethost, certpath, keypath):
-    jsonpath = "/gums/json/getOsgVoUserMap"
-    params = urllib.urlencode({'hostname': targethost})
-    url = 'https://%s%s?%s' % (gumshost, jsonpath, params)
+def gums_json_map(gumshost, command, params, certpath, keypath):
+    params = urllib.urlencode(params)
+    url = 'https://%s/gums/json/%s?%s' % (gumshost, command, jsonpath, params)
     handle = certurlopen(url, certpath, keypath)
     return json.load(handle)
 
@@ -57,9 +56,11 @@ def supported_vos_for_vo_users(vo_users):
 
     return sorted(filter(any_vo_user_exists, vo_users))
 
-def get_json_vo_user_map(gumshost, targethost, certpath=default_certpath,
-                                               keypath=default_keypath):
-    json_map = get_json_map(gumshost, targethost, certpath, keypath)
+def gums_json_vo_user_map(gumshost, targethost, certpath=default_certpath,
+                                                keypath=default_keypath):
+    json_cmd = "getOsgVoUserMap"
+    params   = {'hostname': targethost}
+    json_map = gums_json_map(gumshost, json_cmd, params, certpath, keypath)
 
     if _debug:
         print json_map
@@ -79,8 +80,8 @@ def get_json_vo_user_map(gumshost, targethost, certpath=default_certpath,
 
     return vo_users
 
-def get_supported_vos(gumshost, targethost, certpath=default_certpath,
-                                            keypath=default_keypath):
-    vo_users = get_json_vo_user_map(gumshost, targethost, certpath, keypath)
+def gums_supported_vos(gumshost, targethost, certpath=default_certpath,
+                                             keypath=default_keypath):
+    vo_users = gums_json_vo_user_map(gumshost, targethost, certpath, keypath)
     return supported_vos_for_vo_users(vo_users)
 
