@@ -42,17 +42,18 @@ def certurlopen(url, certpath, keypath):
 
 def get_subject(certpath):
     # TODO: use some SSL/X509 python module to extract DN
-    subject = os.popen("openssl x509 -in %s -noout -subject" % pipes.quote(certpath)).read()
+    subject = os.popen("openssl x509 -in %s -noout -subject" %
+                       pipes.quote(certpath)).read()
     pfx = "subject="
     if subject.startswith(pfx):
         subject = subject[len(pfx):]
     return subject.strip()
 
-def gums_json_map(gumshost, command, params, certpath, keypath):
+def gums_json_map(gums_host, command, params, certpath, keypath):
     params = urllib.urlencode(params)
-    if not re.search(r':\d+$', gumshost):
-        gumshost = gumshost + ":8443"
-    url = 'https://%s/gums/json/%s?%s' % (gumshost, command, jsonpath, params)
+    if not re.search(r':\d+$', gums_host):
+        gums_host = gums_host + ":8443"
+    url = 'https://%s/gums/json/%s?%s' % (gums_host, command, jsonpath, params)
     handle = certurlopen(url, certpath, keypath)
     return json.load(handle)
 
@@ -69,13 +70,13 @@ def supported_vos_for_vo_users(vo_users):
 
     return sorted(filter(any_vo_user_exists, vo_users))
 
-def gums_json_vo_user_map(gumshost, targethost=None, certpath=default_certpath,
-                                                     keypath=default_keypath):
+def gums_json_vo_user_map(gums_host, target_host=None,
+                          certpath=default_certpath, keypath=default_keypath):
     json_cmd = "getOsgVoUserMap"
-    if targethost is None:
-        targethost = get_subject(certpath)
-    params   = {'hostname': targethost}
-    json_map = gums_json_map(gumshost, json_cmd, params, certpath, keypath)
+    if target_host is None:
+        target_host = get_subject(certpath)
+    params   = {'hostname': target_host}
+    json_map = gums_json_map(gums_host, json_cmd, params, certpath, keypath)
 
     if _debug:
         print json_map
@@ -95,8 +96,8 @@ def gums_json_vo_user_map(gumshost, targethost=None, certpath=default_certpath,
 
     return vo_users
 
-def gums_supported_vos(gumshost, targethost=None, certpath=default_certpath,
-                                                  keypath=default_keypath):
-    vo_users = gums_json_vo_user_map(gumshost, targethost, certpath, keypath)
+def gums_supported_vos(gums_host, target_host=None,
+                       certpath=default_certpath, keypath=default_keypath):
+    vo_users = gums_json_vo_user_map(gums_host, target_host, certpath, keypath)
     return supported_vos_for_vo_users(vo_users)
 
