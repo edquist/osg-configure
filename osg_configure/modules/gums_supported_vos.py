@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import os
+import re
 import pwd
 import json
 import pipes
@@ -49,6 +50,8 @@ def get_subject(certpath):
 
 def gums_json_map(gumshost, command, params, certpath, keypath):
     params = urllib.urlencode(params)
+    if not re.search(r':\d+$', gumshost):
+        gumshost = gumshost + ":8443"
     url = 'https://%s/gums/json/%s?%s' % (gumshost, command, jsonpath, params)
     handle = certurlopen(url, certpath, keypath)
     return json.load(handle)
