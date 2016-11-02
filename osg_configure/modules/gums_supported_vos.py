@@ -9,6 +9,8 @@ import urllib
 import httplib
 import urllib2
 
+from osg_configure.modules import exceptions
+
 _debug = False
 
 # defaults
@@ -82,17 +84,18 @@ def gums_json_vo_user_map(gums_host, target_host=None,
         print json_map
 
     if 'result' not in json_map:
-        raise Exception("'result' not in returned json")
+        raise exceptions.ApplicationError("'result' not in returned json")
     if json_map['result'] != 'OK':
-        raise Exception("%s: %s" % (json_map.get('result', "Fail"),
-                                    json_map.get('message', "(no message)")))
+        raise exceptions.ApplicationError("%s: %s" % (
+                    json_map.get('result', "Fail"),
+                    json_map.get('message', "(no message)")))
     if 'map' not in json_map:
-        raise Exception("Missing 'map' object")
+        raise exceptions.ApplicationError("Missing 'map' object")
 
     vo_users = json_map['map']
 
     if type(vo_users) is not dict:
-        raise Exception("'map' object not of type dict")
+        raise exceptions.ApplicationError("'map' object not of type dict")
 
     return vo_users
 
