@@ -193,11 +193,11 @@ class InfoServicesConfiguration(BaseConfiguration):
                 using_gums = self.authorization_method == 'xacml'
                 default_allowed_vos = None
                 try:
+                    misc.ensure_valid_user_vo_file(using_gums, gums_host=self.gums_host, logger=self.logger)
                     try:
                         default_allowed_vos = gums_supported_vos.gums_supported_vos(self.gums_host)
                     except exceptions.ApplicationError, e:
                         self.log("Could not query GUMS server via JSON interface: %s" % e, level=logging.DEBUG)
-                        misc.ensure_valid_user_vo_file(using_gums, logger=self.logger)
                         default_allowed_vos = utilities.get_vos(misc.USER_VO_MAP_LOCATION)
                 except exceptions.ConfigureError, err:
                     self.log("Could not determine allowed VOs: %s" % str(err), level=logging.WARNING)

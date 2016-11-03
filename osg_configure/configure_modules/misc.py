@@ -8,6 +8,7 @@ from osg_configure.modules import exceptions
 from osg_configure.modules import utilities
 from osg_configure.modules import configfile
 from osg_configure.modules import validation
+from osg_configure.modules import gums_supported_vos
 from osg_configure.modules.baseconfiguration import BaseConfiguration
 
 __all__ = ['MiscConfiguration']
@@ -172,7 +173,8 @@ class MiscConfiguration(BaseConfiguration):
         if self.htcondor_gateway_enabled:
             self.write_gridmap_to_htcondor_ce_config()
 
-        ensure_valid_user_vo_file(using_gums, logger=self.logger)
+        ensure_valid_user_vo_file(using_gums, gums_host=self.options['gums_host'].value,
+                                  logger=self.logger)
         # Call configure_vdt_cleanup (enabling or disabling as necessary)
         self._configure_cleanup()
 
@@ -397,7 +399,7 @@ configuration:
         utilities.atomic_write(HTCONDOR_CE_CONFIG_FILE, contents)
 
 
-def create_user_vo_file(using_gums=False):
+def create_user_vo_file(using_gums=False, gums_host=None):
     """
     Check and create a mapfile if needed
     """
@@ -407,6 +409,13 @@ def create_user_vo_file(using_gums=False):
         if validation.valid_user_vo_file(map_file):
             return True
         if using_gums:
+            try:
+                user_vo_file_text = gums_supported_vos.gums_json_user_vo_map_file(gums_host)
+                open(USER_VO_MAP_LOCATION, "w").write(user_vo_file_text)
+                return True
+            except exceptions.ApplicationError, e:
+                self.log("Could not query GUMS server via JSON interface: %s" % e, level=logging.DEBUG)
+
             gums_script = '/usr/bin/gums-host-cron'
         else:
             gums_script = '/usr/sbin/edg-mkgridmap'
@@ -421,10 +430,10 @@ def create_user_vo_file(using_gums=False):
     return True
 
 
-def ensure_valid_user_vo_file(using_gums, logger=utilities.NullLogger):
+def ensure_valid_user_vo_file(using_gums, gums_host=None, logger=utilities.NullLogger):
     if not validation.valid_user_vo_file(USER_VO_MAP_LOCATION):
         logger.info("Trying to create user-vo-map file")
-        result = create_user_vo_file(using_gums)
+        result = create_user_vo_file(using_gums, gums_host)
         temp, invalid_lines = validation.valid_user_vo_file(USER_VO_MAP_LOCATION, True)
         result = result and temp
         if not result:
