@@ -8,6 +8,7 @@ import logging
 
 from osg_configure.modules import exceptions
 from osg_configure.modules import utilities
+from osg_configure.modules import gums_supported_vos
 from osg_configure.modules import validation
 from osg_configure.modules import configfile
 from osg_configure.modules.baseconfiguration import BaseConfiguration
@@ -60,6 +61,7 @@ class InfoServicesConfiguration(BaseConfiguration):
         self.resource_catalog = None
         self.authorization_method = None
         self.subcluster_sections = None
+        self.gums_host = None
 
         self.log("InfoServicesConfiguration.__init__ completed")
 
@@ -127,6 +129,7 @@ class InfoServicesConfiguration(BaseConfiguration):
 
         self.authorization_method = csg('Misc Services', 'authorization_method')
         self.subcluster_sections = ConfigParser.SafeConfigParser()
+        self.gums_host = csg('Misc Services', 'gums_host')
 
         for section in configuration.sections():
             if section.lower().startswith('subcluster') or section.lower().startswith('resource entry'):
@@ -177,8 +180,12 @@ class InfoServicesConfiguration(BaseConfiguration):
                          "\nHTCondor version must be at least 8.2.0.", level=logging.WARNING)
             else:
                 using_gums = self.authorization_method == 'xacml'
-                ensure_valid_user_vo_file(using_gums, logger=self.logger)
-                default_allowed_vos = utilities.get_vos(USER_VO_MAP_LOCATION)
+                ensure_valid_user_vo_file(using_gums, gums_host=self.gums_host, logger=self.logger)
+                try:
+                    default_allowed_vos = gums_supported_vos.gums_supported_vos(self.gums_host)
+                except exceptions.ApplicationError, e:
+                    self.log("Could not query GUMS server via JSON interface: %s" % e, level=logging.DEBUG)
+                    default_allowed_vos = utilities.get_vos(USER_VO_MAP_LOCATION)
                 if not default_allowed_vos:
                     # UGLY: only issue the warning if the admin hasn't specified allowed_vos for all their SCs/REs
                     raise_warning = False
