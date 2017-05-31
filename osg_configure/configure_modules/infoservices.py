@@ -2,6 +2,7 @@
  for CE collector info services"""
 
 import re
+import os
 import ConfigParser
 import subprocess
 import logging
@@ -13,6 +14,7 @@ from osg_configure.modules import validation
 from osg_configure.modules import configfile
 from osg_configure.modules.baseconfiguration import BaseConfiguration
 from osg_configure.modules import subcluster
+from osg_configure.modules import reversevomap
 
 __all__ = ['InfoServicesConfiguration']
 
@@ -20,6 +22,8 @@ CE_COLLECTOR_ATTRIBUTES_FILE = '/etc/condor-ce/config.d/10-osg-attributes-genera
 CE_COLLECTOR_CONFIG_FILE = '/etc/condor-ce/config.d/10-ce-collector-generated.conf'
 HTCONDOR_CE_COLLECTOR_PORT = 9619
 USER_VO_MAP_LOCATION = '/var/lib/osg/user-vo-map'
+BAN_VOMS_MAPFILE = reversevomap.BAN_MAPFILE
+BAN_MAPFILE = '/etc/grid-security/ban-mapfile'
 
 # BATCH_SYSTEMS here is both the config sections for the batch systems
 # and the values in the OSG_BatchSystems attribute since they are
@@ -179,24 +183,45 @@ class InfoServicesConfiguration(BaseConfiguration):
                          "\nIf not, you may need to add the directory containing the Python bindings to PYTHONPATH."
                          "\nHTCondor version must be at least 8.2.0.", level=logging.WARNING)
             else:
-                using_gums = self.authorization_method == 'xacml'
-                ensure_valid_user_vo_file(using_gums, gums_host=self.gums_host, logger=self.logger)
-                try:
-                    default_allowed_vos = gums_supported_vos.gums_supported_vos(self.gums_host)
-                except exceptions.ApplicationError, e:
-                    self.log("Could not query GUMS server via JSON interface: %s" % e, level=logging.DEBUG)
+                if self.authorization_method == 'vomsmap':
+                    error = False
+                    for requiredfile in [BAN_MAPFILE, BAN_VOMS_MAPFILE]:
+                        if not os.path.exists(requiredfile):
+                            self.log("%s authorization requested but %s was not found."
+                                     "\nThis will cause all mappings to fail."
+                                     "\nPlease reinstall lcmaps >= 1.6.6-1.3 or create a blank %s yourself." %
+                                     (self.authorization_method, requiredfile, requiredfile),
+                                     level=logging.ERROR)
+                            error = True
+                    if error:
+                        return False
+
+                    default_allowed_vos = reversevomap.get_allowed_vos()
+                else:
+                    using_gums = self.authorization_method == 'xacml'
+                    ensure_valid_user_vo_file(using_gums, gums_host=self.gums_host, logger=self.logger)
+                    try:
+                        default_allowed_vos = gums_supported_vos.gums_supported_vos(self.gums_host)
+                    except exceptions.ApplicationError, e:
+                        self.log("Could not query GUMS server via JSON interface: %s" % e, level=logging.DEBUG)
                     default_allowed_vos = utilities.get_vos(USER_VO_MAP_LOCATION)
                 if not default_allowed_vos:
-                    # UGLY: only issue the warning if the admin hasn't specified allowed_vos for all their SCs/REs
+                    # UGLY: only issue the warning if the admin has requested autodetection for some of their SCs/REs
                     raise_warning = False
                     for section in self.subcluster_sections.sections():
-                        if not utilities.config_safe_get(self.subcluster_sections, section, 'allowed_vos'):
+                        if utilities.config_safe_get(self.subcluster_sections, section, 'allowed_vos', '').strip() == "*":
                             raise_warning = True
                     if raise_warning:
-                        self.log("Could not determine default allowed VOs for subclusters/resource entries."
-                                 "\nEnsure %s exists and is non-empty, or fill out allowed_vos in all your Subcluster"
-                                 " and Resource Entry sections." % USER_VO_MAP_LOCATION,
+                        self.log("Could not determine default allowed VOs for subclusters/resource entries.",
                                  level=logging.WARNING)
+                        if self.authorization_method == 'vomsmap':
+                            self.log("Install vo-client-lcmaps-voms to obtain default mappings for VOs, and/or create"
+                                     " your own mapfile at /etc/grid-security/voms-mapfile.",
+                                     level=logging.WARNING)
+                        else:
+                            self.log("Ensure %s exists and is non-empty, or fill out allowed_vos in all your"
+                                     " Subcluster and Resource Entry sections." % USER_VO_MAP_LOCATION,
+                                     level=logging.WARNING)
                 try:
                     self.resource_catalog = subcluster.resource_catalog_from_config(self.subcluster_sections,
                                                                                     logger=self.logger,
