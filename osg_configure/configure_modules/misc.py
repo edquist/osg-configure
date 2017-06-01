@@ -156,6 +156,7 @@ class MiscConfiguration(BaseConfiguration):
             self.log("Error while running fetch-crl script", level=logging.ERROR)
             raise exceptions.ConfigureError('fetch-crl returned non-zero exit code')
 
+        using_gums = False
         if self.using_glexec and not utilities.rpm_installed('lcmaps-plugins-glexec-tracking'):
             msg = "Can't use glExec because LCMAPS glExec plugin not installed."\
                   " Install lcmaps-plugins-glexec-tracking or unset glexec_location"
@@ -165,6 +166,7 @@ class MiscConfiguration(BaseConfiguration):
                      level=logging.ERROR)
             raise exceptions.ConfigureError(msg)
         if self.authorization_method == 'xacml':
+            using_gums = True
             self._set_lcmaps_callout(True)
             self._update_gums_client_location()
         elif self.authorization_method == 'gridmap':
